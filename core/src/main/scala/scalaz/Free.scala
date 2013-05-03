@@ -247,3 +247,18 @@ trait FreeFunctions {
     Suspend[({type f[x] = (=> A) => x})#f, A](a => Return[({type f[x] = (=> A) => x})#f, A](a))
 }
 
+/** The free Applicative for a Functor `F`. */
+sealed abstract class FreeA[F[-_], A](implicit F: Functor[F]) {
+  import FreeA._
+  import syntax.applicative._
+  def run[B, G[+_]: Applicative](u: F[B] ⇒ G[B]): G[A] =
+    this match {
+      case Pure(x)  ⇒ Applicative[G].pure(x)
+      case Ap(f, x) ⇒ u(f) <*> x.run(u)
+    }
+}
+
+object FreeA {
+  case class Pure[F[-_]: Functor, A](a: A) extends FreeA[F, A]
+  case class Ap[F[-_]: Functor, A, B](fa: F[A], apf: FreeA[F, A ⇒ B]) extends FreeA[F, B]
+}
