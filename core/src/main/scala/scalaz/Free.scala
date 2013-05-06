@@ -248,12 +248,12 @@ trait FreeFunctions {
 }
 
 /** The free Applicative for a Functor `F`. */
-sealed abstract class FreeA[F[+_], A](implicit F: Functor[F]) {
+sealed abstract class FreeA[F[+_], +A](implicit F: Functor[F]) {
   import FreeA._
   import syntax.applicative._
   def run[B, G[+_]: Applicative](u: F[B] ⇒ G[B]): G[A] =
     this match {
-      case Pure(x)  ⇒ Applicative[G].pure(x)
+      case Pure(x)        ⇒ Applicative[G].pure(x)
       case Ap(f: F[B], x) ⇒ u(f) <*> x.run(u)
     }
   def hoistAp[F[+_]: Functor, G[+_]: Functor, B](f: F[B] ⇒ G[B]): FreeA[G, A] =
@@ -261,19 +261,19 @@ sealed abstract class FreeA[F[+_], A](implicit F: Functor[F]) {
       case Pure(a)        ⇒ Pure(a)
       case Ap(x: F[B], y) ⇒ Ap(f(x), y.hoistAp(f))
     }
-  def pure(a: A) = Pure[F, A](a)
+  def pure[S >: A](a: S): FreeA[F, S] = Pure[F, S](a)
   def map[B](f: A ⇒ B): FreeA[F, B] = this match {
-    case Pure(x)           ⇒ Pure[F, B](f(x))
-    case Ap(fa: F[A], apf) ⇒ Ap[F, A, B](fa, apf map (f compose _))
+    case Pure(x)           ⇒ Pure(f(x))
+    case Ap(fa: F[A], apf) ⇒ Ap(fa, apf map (f compose _))
   }
   /*def <*>[B](fa: FreeA[F, A ⇒ B]): FreeA[F, B] = this match {
     case Pure(f)  ⇒ fa.map(fun ⇒ fun(f))
-    case Ap(x, y) ⇒ Ap(x, fa <*> y)
+    case Ap(x, y) ⇒ Ap(x, (fa <*> y).map(fun ⇒ fun.flip))
   }*/
 }
 
 object FreeA {
-  case class Pure[F[+_]: Functor, A](a: A) extends FreeA[F, A]
-  case class Ap[F[+_]: Functor, A, B](fa: F[A], apf: FreeA[F, A ⇒ B]) extends FreeA[F, B]
+  case class Pure[F[+_]: Functor, +A](a: A) extends FreeA[F, A]
+  case class Ap[F[+_]: Functor, A, +B](fa: F[A], apf: FreeA[F, A ⇒ B]) extends FreeA[F, B]
   def liftFreeA[F[+_]: Functor, A](x: F[A]): FreeA[F, A] = Ap[F, A, A](x, Pure(identity _))
 }
